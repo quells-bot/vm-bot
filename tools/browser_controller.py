@@ -98,6 +98,7 @@ def goto():
     """Navigate to URL"""
     data = request.get_json()
     url = data.get('url')
+    wait = request.args.get('wait', default=2, type=float)
 
     if not url:
         return jsonify({'status': 'error', 'message': 'URL required'}), 400
@@ -105,7 +106,7 @@ def goto():
     try:
         b = get_browser()
         b.get(url)
-        time.sleep(2)  # Wait for page to load
+        time.sleep(wait)  # Wait for page to load
         return jsonify({
             'status': 'success',
             'url': b.current_url,
@@ -119,27 +120,14 @@ def goto():
 
 @app.route('/screenshot')
 def screenshot():
-    """Get current screenshot"""
-    try:
-        b = get_browser()
-        b.save_screenshot(screenshot_path)
-        return send_file(screenshot_path, mimetype='image/png')
-    except Exception as e:
-        return jsonify({
-            'status': 'error',
-            'message': str(e)
-        }), 500
-
-@app.route('/screenshot/base64')
-def screenshot_base64():
-    """Get screenshot as base64"""
+    """Get current screenshot as base64 JSON"""
     try:
         b = get_browser()
         png = b.get_screenshot_as_png()
         b64 = base64.b64encode(png).decode('utf-8')
         return jsonify({
             'status': 'success',
-            'screenshot': b64,
+            'screenshot': f'data:image/png;base64,{b64}',
             'url': b.current_url,
             'title': b.title
         })
@@ -294,6 +282,7 @@ def click():
     data = request.get_json()
     selector = data.get('selector')
     selector_type = data.get('type', 'css')  # css, xpath, link_text, etc.
+    wait = request.args.get('wait', default=1, type=float)
 
     if not selector:
         return jsonify({'status': 'error', 'message': 'Selector required'}), 400
@@ -317,7 +306,7 @@ def click():
         element = b.find_element(by_type, selector)
         element.click()
 
-        time.sleep(1)  # Wait for click action
+        time.sleep(wait)  # Wait for click action
 
         return jsonify({
             'status': 'success',
@@ -343,6 +332,7 @@ def fill():
     selector_type = data.get('type', 'css')
     value = data.get('value', '')
     clear_first = data.get('clear', True)
+    wait = request.args.get('wait', default=0.5, type=float)
 
     if not selector:
         return jsonify({'status': 'error', 'message': 'Selector required'}), 400
@@ -364,6 +354,8 @@ def fill():
             element.clear()
 
         element.send_keys(value)
+
+        time.sleep(wait)  # Wait after filling
 
         return jsonify({
             'status': 'success',
@@ -406,10 +398,11 @@ def execute_script():
 @app.route('/back', methods=['POST'])
 def go_back():
     """Go back in browser history"""
+    wait = request.args.get('wait', default=1, type=float)
     try:
         b = get_browser()
         b.back()
-        time.sleep(1)
+        time.sleep(wait)
         return jsonify({
             'status': 'success',
             'url': b.current_url
@@ -423,10 +416,11 @@ def go_back():
 @app.route('/forward', methods=['POST'])
 def go_forward():
     """Go forward in browser history"""
+    wait = request.args.get('wait', default=1, type=float)
     try:
         b = get_browser()
         b.forward()
-        time.sleep(1)
+        time.sleep(wait)
         return jsonify({
             'status': 'success',
             'url': b.current_url
@@ -440,10 +434,11 @@ def go_forward():
 @app.route('/refresh', methods=['POST'])
 def refresh():
     """Refresh current page"""
+    wait = request.args.get('wait', default=2, type=float)
     try:
         b = get_browser()
         b.refresh()
-        time.sleep(2)
+        time.sleep(wait)
         return jsonify({
             'status': 'success',
             'url': b.current_url
@@ -459,23 +454,27 @@ def index():
     """API documentation"""
     return jsonify({
         'name': 'Browser Controller API',
-        'version': '1.0',
+        'version': '1.1',
         'endpoints': {
             'GET /status': 'Get browser status',
             'POST /start': 'Start browser session',
             'POST /stop': 'Stop browser session',
-            'POST /goto': 'Navigate to URL (body: {url: "..."})',
-            'GET /screenshot': 'Get screenshot as PNG',
-            'GET /screenshot/base64': 'Get screenshot as base64',
+            'POST /goto?wait=N': 'Navigate to URL (body: {url: "..."}, optional ?wait=seconds)',
+            'GET /screenshot': 'Get screenshot as base64 JSON',
             'GET /elements/links': 'List all links',
-            'GET /elements/forms': 'List all form fields',
+            'GET /elements/forms': 'List all form fields (includes selectors)',
             'GET /elements/buttons': 'List all buttons',
-            'POST /click': 'Click element (body: {selector: "...", type: "css"})',
-            'POST /fill': 'Fill form field (body: {selector: "...", value: "...", type: "css"})',
+            'POST /click?wait=N': 'Click element (body: {selector: "...", type: "css"}, optional ?wait=seconds)',
+            'POST /fill?wait=N': 'Fill form field (body: {selector: "...", value: "...", type: "css"}, optional ?wait=seconds)',
             'POST /execute': 'Execute JavaScript (body: {script: "..."})',
-            'POST /back': 'Go back',
-            'POST /forward': 'Go forward',
-            'POST /refresh': 'Refresh page'
+            'POST /back?wait=N': 'Go back (optional ?wait=seconds)',
+            'POST /forward?wait=N': 'Go forward (optional ?wait=seconds)',
+            'POST /refresh?wait=N': 'Refresh page (optional ?wait=seconds)'
+        },
+        'notes': {
+            'wait_parameter': 'All POST endpoints support optional ?wait=N query param to control delay after action (in seconds)',
+            'screenshot': 'Now returns base64-encoded image in JSON format with URL and title',
+            'forms': 'Use /elements/forms to discover form fields and their selectors before filling'
         }
     })
 
