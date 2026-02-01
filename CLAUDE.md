@@ -88,6 +88,17 @@ npm test                 # Test (if configured)
 node index.js            # Run directly
 ```
 
+## Available Tools
+
+### Browser Controller
+A stateful browser automation system for viewing and interacting with webpages.
+
+- **Documentation**: See [BROWSER_GUIDE.md](BROWSER_GUIDE.md)
+- **Server**: `tools/browser_controller.py` - Flask REST API
+- **Client**: `tools/browser_client.py` - Python client library
+- **Capabilities**: Navigate, screenshot, click, fill forms, execute JavaScript
+- **Usage**: Interactive via curl or Python
+
 ## Notes
 
 - This environment is specifically configured for development work
